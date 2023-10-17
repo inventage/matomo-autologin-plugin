@@ -1,0 +1,19 @@
+{
+    "name": "AutoLogin",
+    "version": "1.0.0",
+    "description": "Adds",
+    "keywords": ["authentication", "login", "groups", "autologin"],
+    "license": "MIT",
+    "homepage": "https://inventage.com",
+    "authors": [
+        {
+            "name": "Inventage AG",
+            "email": "kevin.tang@inventage.com",
+            "homepage": "https://inventage.com"
+        }
+    ],
+    "require": {
+        "piwik": ">=4.0.0-b1,<5.0.0-b1",
+        "php": ">=7.0.0"
+    }
+}
