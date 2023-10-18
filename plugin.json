@@ -1,10 +1,10 @@
 {
     "name": "AutoLogin",
-    "version": "1.0.0",
-    "description": "Adds",
-    "keywords": ["authentication", "login", "groups", "autologin"],
+    "version": "0.1.0",
+    "description": "The Matomo AutoLogin Plugin adds new authentication and registration options by using incoming HTTP headers.",
+    "keywords": ["authentication", "login", "registration", "groups", "autologin", "autoregistration", "auto-login", "auto-registration"],
     "license": "MIT",
-    "homepage": "https://inventage.com",
+    "homepage": "https://github.com/inventage/matomo-autologin-plugin",
     "authors": [
         {
             "name": "Inventage AG",
@@ -15,5 +15,9 @@
     "require": {
         "piwik": ">=4.0.0-b1,<5.0.0-b1",
         "php": ">=7.0.0"
+    },
+    "support": {
+        "issues": "https://github.com/inventage/matomo-autologin-plugin/issues",
+        "docs": "https://github.com/inventage/matomo-autologin-plugin"
     }
 }
