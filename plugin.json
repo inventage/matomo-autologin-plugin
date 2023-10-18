@@ -2,7 +2,7 @@
     "name": "AutoLogin",
     "version": "1.0.0",
     "description": "Adds",
-    "keywords": ["authentication", "login", "groups", "autologin"],
+    "keywords": ["authentication", "login", "registration", "groups", "autologin", "autoregistration", "auto-login", "auto-registration"],
     "license": "MIT",
     "homepage": "https://inventage.com",
     "authors": [
