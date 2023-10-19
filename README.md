@@ -11,18 +11,15 @@ The Matomo AutoLogin Plugin changes Matomo's authentication and registration pro
 Please note that this plugin comes with important security considerations, and should only be used with proper access control mechanism. Without these security measures, the plugin poses security risks.
 
 Possible setup:
+
 ![alt text](docs/matomo_autologin.png)
-In this setup, the proxy validates an incoming access token from the user. The proxy then extracts relevant information from the access token to set their username, role etc. in matomo. 
 
-### Plugin configuration
-
+In this setup, all traffic towards Matomo goes through a proxy. The proxy validates an incoming access token from the user. The proxy then extracts relevant information from the access token to set their username, role etc. in matomo. 
 
 ## Installation
 There are two options for installing the AutoLogin plugin:
 * Install it via the Matomo Marketplace.
 * Put the php files and the plugin.json file in /plugins/AutoLogin and activate it in the Matomo's system settings.
-
-
 
 
 ## License
