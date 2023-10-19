@@ -2,7 +2,7 @@
 
 ## Description
 
-The Matomo AutoLogin Plugin adds new authentication and registration options by utilizing incoming HTTP headers. It offers the following features:
+The Matomo AutoLogin Plugin adds new authentication and registration options by using incoming HTTP headers. It offers the following features:
 
 1. **Login**: Matomo will automatically sign in users by extracting their username and role information from the incoming HTTP header. If a user with that username already exists in Matomo, they will be logged in with the specified role (View, Write, Admin, or Super User).
 2. **Registration**: If the username provided in the HTTP header does not exist in Matomo, this plugin will register a new user with that username.
