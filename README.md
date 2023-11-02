@@ -28,6 +28,8 @@ There are two options for installing the AutoLogin plugin:
 * Install it via the Matomo Marketplace.
 * Put the php files and the plugin.json file in /plugins/AutoLogin and activate it in the Matomo's system settings.
 
+## Known issue
+A random secure password is set for each automatically registered user. This means that automatically registered SuperUsers will not be able to make changes to system settings unless they manually change their password. Alternatively, disabling password confirmation for system settings changes would be another solution: https://forum.matomo.org/t/how-to-disable-confirmpassword-feature/49834/3
 
 ## License
 MIT 
