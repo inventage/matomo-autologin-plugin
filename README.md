@@ -12,7 +12,7 @@ Please note that this plugin comes with important security considerations, and s
 
 Possible setup:
 
-![AutoLogin Setup](./screenshots/matomo_autologin.png)
+![AutoLogin Setup](https://raw.githubusercontent.com/inventage/matomo-autologin-plugin/main/screenshots/matomo_autologin.png)
 
 In this setup, all traffic towards Matomo goes through a proxy. The proxy validates an incoming access token from the user. The proxy then extracts relevant information from the access token to set their username, role etc. in matomo. 
 
