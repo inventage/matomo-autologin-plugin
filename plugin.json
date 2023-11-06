@@ -1,6 +1,6 @@
 {
     "name": "AutoLogin",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "The Matomo AutoLogin Plugin adds new authentication and registration options by using incoming HTTP headers.",
     "keywords": ["authentication", "login", "registration", "groups", "autologin", "autoregistration", "auto-login", "auto-registration"],
     "license": "MIT",
