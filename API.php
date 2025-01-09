@@ -52,7 +52,7 @@ class API extends \Piwik\Plugins\UsersManager\API
         $this->model->deleteUserAccess($userLogin);
     }
 
-    public function setUserAccess($userLogin, $access, $idSites, $passwordConfirmation = null))
+    public function setUserAccess($userLogin, $access, $idSites, $passwordConfirmation = null)
     {
         if (!$this->validAccessType($access)){
             throw new Exception("Autologin does not support the access type: $access");
