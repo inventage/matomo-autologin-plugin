@@ -189,7 +189,7 @@ class Controller extends \Piwik\Plugins\Login\Controller
         $username = null;
 
         foreach (getallheaders() as $name => $value) {
-            if ($name == self::HEADER_USERNAME_KEY) {
+            if (strcasecmp($name, self::HEADER_USERNAME_KEY) === 0) {
                 $username = $value;
             }
         }
@@ -201,7 +201,7 @@ class Controller extends \Piwik\Plugins\Login\Controller
         $username = null;
 
         foreach (getallheaders() as $name => $value) {
-            if ($name == self::HEADER_EMAIL_KEY) {
+            if (strcasecmp($name, self::HEADER_EMAIL_KEY) === 0) {
                 $username = $value;
             }
         }
@@ -213,7 +213,7 @@ class Controller extends \Piwik\Plugins\Login\Controller
         $groupName = null;
 
         foreach (getallheaders() as $name => $value) {
-            if ($name == self::HEADER_GROUP_KEY) {
+            if (strcasecmp($name, self::HEADER_GROUP_KEY) === 0) {
                 $groupName = $value;
             }
         }
@@ -224,7 +224,7 @@ class Controller extends \Piwik\Plugins\Login\Controller
     {
         $role = null;
         foreach (getallheaders() as $name => $value) {
-            if ($name == self::HEADER_ROLE_KEY) {
+            if (strcasecmp($name, self::HEADER_ROLE_KEY) === 0) {
                 $role = $value;
             }
         }
