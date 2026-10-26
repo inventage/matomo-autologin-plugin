@@ -32,15 +32,15 @@ class API extends \Piwik\Plugins\UsersManager\API
 
 
     public function __construct(Model $model, UserAccessFilter $filter, Password $password,
-                                Access $access = null, RolesProvider $roleProvider = null,
-                                CapabilitiesProvider $capabilityProvider = null,
-                                PasswordVerifier $passwordVerifier = null)
+                                ?Access $access = null, ?Access\RolesProvider $roleProvider = null,
+                                ?Access\CapabilitiesProvider $capabilityProvider = null,
+                                ?PasswordVerifier $passwordVerifier = null)
     {
         parent::__construct($model, $filter, $password, $access, $roleProvider, $capabilityProvider, $passwordVerifier);
         $this->model = $model;
     }
 
-    public function setSuperUserAccess($userLogin, $hasSuperUserAccess, $passwordConfirmation = null)
+    public function setSuperUserAccess($userLogin, $hasSuperUserAccess, $passwordConfirmation = null): void
     {
         $this->model->deleteUserAccess($userLogin);
         $this->model->setSuperUserAccess($userLogin, $hasSuperUserAccess);
@@ -52,7 +52,7 @@ class API extends \Piwik\Plugins\UsersManager\API
         $this->model->deleteUserAccess($userLogin);
     }
 
-    public function setUserAccess($userLogin, $access, $idSites, $passwordConfirmation = null)
+    public function setUserAccess($userLogin, $access, $idSites, $passwordConfirmation = null): void
     {
         if (!$this->validAccessType($access)){
             throw new Exception("Autologin does not support the access type: $access");
