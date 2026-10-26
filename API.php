@@ -32,9 +32,9 @@ class API extends \Piwik\Plugins\UsersManager\API
 
 
     public function __construct(Model $model, UserAccessFilter $filter, Password $password,
-                                Access $access = null, RolesProvider $roleProvider = null,
-                                CapabilitiesProvider $capabilityProvider = null,
-                                PasswordVerifier $passwordVerifier = null)
+                                ?Access $access = null, ?Access\RolesProvider $roleProvider = null,
+                                ?Access\CapabilitiesProvider $capabilityProvider = null,
+                                ?PasswordVerifier $passwordVerifier = null)
     {
         parent::__construct($model, $filter, $password, $access, $roleProvider, $capabilityProvider, $passwordVerifier);
         $this->model = $model;

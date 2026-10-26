@@ -15,7 +15,6 @@ use Piwik\Exception\Exception;
 use Piwik\Site;
 use Piwik\Plugins\SitesManager\Model as SitesManagerModel;
 use Piwik\Plugins\UsersManager\Model as UsersManagerModel;
-use function DI\string;
 
 
 class Controller extends \Piwik\Plugins\Login\Controller
