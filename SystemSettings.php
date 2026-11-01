@@ -9,6 +9,7 @@
 
 namespace Piwik\Plugins\AutoLogin;
 
+use Matomo\Network\IPUtils;
 use Piwik\Piwik;
 use Piwik\Plugins\SitesManager\Model as SitesManagerModel;
 use Piwik\Settings\FieldConfig;
@@ -18,6 +19,12 @@ use Piwik\Site;
 
 class SystemSettings extends \Piwik\Settings\Plugin\SystemSettings
 {
+    private const MIN_SECRET_LENGTH = 32;
+
+    public $enabled;
+    public $sharedSecret;
+    public $trustedProxies;
+    public $allowSuperUserRole;
     public $disableAutoRegistration;
     public $groupManagement;
     private $siteModel;
@@ -33,8 +40,86 @@ class SystemSettings extends \Piwik\Settings\Plugin\SystemSettings
     protected function init()
     {
         $this->siteModel = new SitesManagerModel();
+        $this->enabled = $this->createEnabled();
+        $this->sharedSecret = $this->createSharedSecret();
+        $this->trustedProxies = $this->createTrustedProxies();
+        $this->allowSuperUserRole = $this->createAllowSuperUserRole();
         $this->disableAutoRegistration = $this->createDisableAutoRegistration();
         $this->groupManagement = $this->createGroupManagement();
+    }
+
+    /**
+     * @return string[] IPs and ranges (CIDR or wildcard) the proxy connects from, empty if not configured
+     */
+    public function getTrustedProxies(): array
+    {
+        return self::parseLines((string) $this->trustedProxies->getValue());
+    }
+
+    private static function parseLines(string $value): array
+    {
+        return array_values(array_filter(array_map('trim', preg_split('/[\r\n]+/', $value))));
+    }
+
+    private function createEnabled(): SystemSetting
+    {
+        return $this->makeSetting("enabled", false, FieldConfig::TYPE_BOOL, function (FieldConfig $field) {
+            $field->title = "Enable AutoLogin";
+            $field->description = "Off by default. AutoLogin rejects every request until this is on and a shared "
+                . "secret and trusted proxies are set.";
+            $field->uiControl = FieldConfig::UI_CONTROL_CHECKBOX;
+        });
+    }
+
+    private function createSharedSecret(): SystemSetting
+    {
+        return $this->makeSetting("sharedSecret", "", FieldConfig::TYPE_STRING, function (FieldConfig $field) {
+            $field->title = "Shared secret";
+            $field->description = "The proxy must send this value in the '" . Controller::HEADER_SECRET_KEY
+                . "' header. At least " . self::MIN_SECRET_LENGTH . " characters, for example the output of "
+                . "'openssl rand -hex 32'.";
+            $field->uiControl = FieldConfig::UI_CONTROL_PASSWORD;
+            $field->validate = function ($value) {
+                if ($value === '' || $value === null) {
+                    return;
+                }
+                if (strlen((string) $value) < self::MIN_SECRET_LENGTH) {
+                    throw new \Exception("The shared secret must be at least " . self::MIN_SECRET_LENGTH
+                        . " characters long.");
+                }
+                // Matomo HTML-encodes characters like < & " in setting input, which would never match the raw header.
+                if (!preg_match('/^[A-Za-z0-9_-]+$/', (string) $value)) {
+                    throw new \Exception("The shared secret may only contain letters, digits, '-' and '_'.");
+                }
+            };
+        });
+    }
+
+    private function createTrustedProxies(): SystemSetting
+    {
+        return $this->makeSetting("trustedProxies", "", FieldConfig::TYPE_STRING, function (FieldConfig $field) {
+            $field->title = "Trusted proxies";
+            $field->description = "One IP address or range per line, for example 10.0.0.5 or 10.0.0.0/24. "
+                . "Requests whose connecting address (REMOTE_ADDR) is not listed are rejected.";
+            $field->uiControl = FieldConfig::UI_CONTROL_TEXTAREA;
+            $field->validate = function ($value) {
+                foreach (self::parseLines((string) $value) as $range) {
+                    if (IPUtils::getIPRangeBounds($range) === null) {
+                        throw new \Exception("Not a valid IP address or range: $range");
+                    }
+                }
+            };
+        });
+    }
+
+    private function createAllowSuperUserRole(): SystemSetting
+    {
+        return $this->makeSetting("allowSuperUserRole", false, FieldConfig::TYPE_BOOL, function (FieldConfig $field) {
+            $field->title = "Allow superuser role";
+            $field->description = "Off by default. When off, the 'superuser' role header is rejected and existing "
+                . "superusers cannot sign in through AutoLogin.";
+            $field->uiControl = FieldConfig::UI_CONTROL_CHECKBOX;
+        });
     }
 
     /**

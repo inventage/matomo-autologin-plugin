@@ -35,9 +35,16 @@ class Auth extends \Piwik\Plugins\Login\Auth
         $this->passwordHelper = new Password();
     }
 
+    /**
+     * Does not check a password. Only Controller::index() may use this, after it has verified the request came
+     * from the trusted proxy.
+     */
     public function authenticate()
     {
-        $user = $this->userModel->getUser($this->login);
+        $user = $this->userModel->getUser((string) $this->login);
+        if (empty($user['login'])) {
+            return new AuthResult(AuthResult::FAILURE, $this->login, null);
+        }
         return $this->authenticationSuccess($user);
     }
 
