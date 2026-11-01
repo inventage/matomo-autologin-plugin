@@ -121,6 +121,8 @@ class Controller extends \Piwik\Plugin\Controller
     /**
      * Some servers map both "matomo-username" and "matomo_username" to HTTP_MATOMO_USERNAME. A proxy that only
      * overwrites the hyphenated header would then let a client-sent underscore variant through.
+     * Only works where getallheaders() returns the raw request headers (mod_php). Under FPM it is rebuilt from
+     * $_SERVER after the merge, so there the proxy has to strip both spellings (see README).
      */
     private function assertNoUnderscoreHeaderVariants(): void
     {
