@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Breaking: AutoLogin is disabled after installing or updating. Set "Enable AutoLogin", "Shared secret" and
   "Trusted proxies" to turn it on.
+- A `matomo-role` header other than `superuser` now removes superuser access from the user. AutoLogin refuses to
+  remove it from the last superuser.
+- Requests with underscore variants of the `matomo-*` headers (e.g. `matomo_username`) are rejected.
 - Error messages no longer include stack traces or the list of site IDs.
 
 ### Fixed

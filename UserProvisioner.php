@@ -67,6 +67,20 @@ class UserProvisioner
         Cache::deleteTrackerCache();
     }
 
+    public function revokeSuperUserAccess(string $login): void
+    {
+        $user = $this->model->getUser($login);
+        if (empty($user['superuser_access'])) {
+            return;
+        }
+        // Same guard as core UsersManager: never remove the last superuser, the instance would be unmanageable.
+        if (count($this->model->getUsersHavingSuperUserAccess()) <= 1) {
+            throw new Exception("Autologin error. Cannot remove superuser access from the last superuser.");
+        }
+        $this->model->setSuperUserAccess($login, false);
+        Cache::deleteTrackerCache();
+    }
+
     public function resetUserAccess(string $login): void
     {
         $this->model->deleteUserAccess($login);

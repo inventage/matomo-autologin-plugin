@@ -18,7 +18,7 @@ Possible setup:
 
 ![AutoLogin Setup](https://raw.githubusercontent.com/inventage/matomo-autologin-plugin/main/screenshots/matomo_autologin.png)
 
-In this setup, all traffic towards Matomo goes through a proxy. The proxy validates an incoming access token from the user, extracts the username, role etc. from it and sets the `matomo-*` headers. The proxy must overwrite any `matomo-*` headers sent by the client, and Matomo must not be reachable without going through the proxy.
+In this setup, all traffic towards Matomo goes through a proxy. The proxy validates an incoming access token from the user, extracts the username, role etc. from it and sets the `matomo-*` headers. The proxy must overwrite any `matomo-*` headers sent by the client (AutoLogin rejects underscore variants such as `matomo_username` where the server passes them through), and Matomo must not be reachable without going through the proxy.
 
 ## Configuration
 
@@ -40,7 +40,7 @@ Request headers set by the proxy:
 | `matomo-autologin-secret` | yes | The shared secret |
 | `matomo-username` | yes | Matomo login |
 | `matomo-email` | for new users | Email used for AutoRegistration |
-| `matomo-role` | no | `view`, `write`, `admin`, `noaccess` or `superuser` |
+| `matomo-role` | no | `view`, `write`, `admin`, `noaccess` or `superuser`. Any value other than `superuser` removes superuser access. |
 | `matomo-group` | no | A group defined in Group Management |
 
 ![Configuration](./screenshots/plugin_settings.png)

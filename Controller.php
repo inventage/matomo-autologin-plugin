@@ -110,9 +110,28 @@ class Controller extends \Piwik\Plugin\Controller
             $this->reject("request from untrusted address '$remoteAddress'");
         }
 
+        $this->assertNoUnderscoreHeaderVariants();
+
         $providedSecret = $this->getHeader(self::HEADER_SECRET_KEY);
         if ($providedSecret === null || !hash_equals($secret, $providedSecret)) {
             $this->reject("missing or wrong shared secret header");
+        }
+    }
+
+    /**
+     * Some servers map both "matomo-username" and "matomo_username" to HTTP_MATOMO_USERNAME. A proxy that only
+     * overwrites the hyphenated header would then let a client-sent underscore variant through.
+     */
+    private function assertNoUnderscoreHeaderVariants(): void
+    {
+        if (!function_exists('getallheaders')) {
+            return;
+        }
+        foreach (array_keys(getallheaders()) as $name) {
+            $name = strtolower((string) $name);
+            if (strpos($name, '_') !== false && strpos(str_replace('_', '-', $name), 'matomo-') === 0) {
+                $this->reject("header '$name' uses underscores, only hyphenated matomo-* headers are accepted");
+            }
         }
     }
 
@@ -130,6 +149,11 @@ class Controller extends \Piwik\Plugin\Controller
         if ($role === self::ROLE_SUPERUSER) {
             $this->users->grantSuperUserAccess($username);
             return;
+        }
+
+        // Any other explicit role means the proxy no longer considers this user a superuser.
+        if ($role !== null) {
+            $this->users->revokeSuperUserAccess($username);
         }
 
         if ($role === self::ROLE_NOACCESS) {
