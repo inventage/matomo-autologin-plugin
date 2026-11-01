@@ -18,7 +18,7 @@ Possible setup:
 
 ![AutoLogin Setup](https://raw.githubusercontent.com/inventage/matomo-autologin-plugin/main/screenshots/matomo_autologin.png)
 
-In this setup, all traffic towards Matomo goes through a proxy. The proxy validates an incoming access token from the user, extracts the username, role etc. from it and sets the `matomo-*` headers. The proxy must remove or overwrite every `matomo-*` header sent by the client, including underscore spellings such as `matomo_username` (some servers map both spellings to the same PHP variable, and AutoLogin can only detect this under mod_php), and Matomo must not be reachable without going through the proxy.
+In this setup, all traffic towards Matomo goes through a proxy. The proxy validates an incoming access token from the user, extracts the username, role etc. from it and sets the `matomo-*` headers. The proxy must remove or overwrite every `matomo-*` header sent by the client, including underscore spellings such as `matomo_username` (some servers map both spellings to the same PHP variable, and AutoLogin can only detect this under mod_php), and Matomo must not be reachable without going through the proxy. With nginx in front of PHP-FPM, keep `underscores_in_headers` off (the default). With it on, a client-sent `matomo_username` reaches PHP as the same header and can replace the value the proxy set.
 
 ## Configuration
 
