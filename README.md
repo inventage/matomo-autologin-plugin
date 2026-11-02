@@ -24,14 +24,38 @@ In this setup, all traffic towards Matomo goes through a proxy. The proxy valida
 
 Only a Superuser can configure the AutoLogin plugin, under Administration > System > General settings > AutoLogin.
 
-| Setting | Default | Purpose |
-|---|---|---|
-| Enable AutoLogin | off | Every request is rejected while this is off. |
-| Shared secret | empty | Value the proxy sends in `matomo-autologin-secret`. At least 32 characters of letters, digits, `-` or `_`, e.g. `openssl rand -hex 32`. |
-| Trusted proxies | empty | One IP address or range per line, e.g. `10.0.0.5` or `10.0.0.0/24`. |
-| Allow superuser role | off | When off, the `superuser` role header is rejected and existing superusers cannot sign in through AutoLogin. |
-| Disable AutoRegistration | off | When on, unknown usernames are rejected instead of created. |
-| Group Management | empty | Maps a `matomo-group` header value to a set of sites. |
+The four settings that gate authentication live in `config.ini.php` under an `[AutoLogin]` section,
+not in the database. They can therefore be provisioned during a deployment, and a Super User who
+takes over the web UI cannot rewrite them to let themselves back in.
+
+```ini
+[AutoLogin]
+enabled = 1
+sharedSecret = "0f3a...32-chars-or-more"
+trustedProxies = "127.0.0.1"
+allowSuperUserRole = 0
+```
+
+Or equivalently, without editing the file by hand:
+
+```bash
+./console config:set --section="AutoLogin" --key="enabled" --value=1
+./console config:set --section="AutoLogin" --key="sharedSecret" --value="$(openssl rand -hex 32)"
+./console config:set --section="AutoLogin" --key="trustedProxies" --value="127.0.0.1"
+./console config:set --section="AutoLogin" --key="allowSuperUserRole" --value=0
+```
+
+| Setting | Where | Default | Purpose |
+|---|---|---|---|
+| `enabled` | config.ini.php | `0` | Every request is rejected while this is off. |
+| `sharedSecret` | config.ini.php | empty | Value the proxy sends in `matomo-autologin-secret`. At least 32 characters of letters, digits, `-` or `_`, e.g. `openssl rand -hex 32`. A value that does not meet this is treated as unset. |
+| `trustedProxies` | config.ini.php | empty | One or more IP addresses or ranges, separated by commas or newlines, e.g. `10.0.0.5` or `10.0.0.0/24`. |
+| `allowSuperUserRole` | config.ini.php | `0` | When off, the `superuser` role header is rejected and existing superusers cannot sign in through AutoLogin. |
+| Disable AutoRegistration | UI / database | off | When on, unknown usernames are rejected instead of created. |
+| Group Management | UI / database | empty | Maps a `matomo-group` header value to a set of sites. |
+
+Booleans must be written as `1` or `0`: Matomo casts the raw INI string, and any non-empty value
+other than `0` (including the word `false`) reads as true.
 
 Request headers set by the proxy:
 

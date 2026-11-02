@@ -98,7 +98,9 @@ class Controller extends \Piwik\Plugin\Controller
             $this->reject("plugin is not enabled in the system settings");
         }
 
-        $secret = (string) $this->settings->sharedSecret->getValue();
+        // getSharedSecret() returns '' when the configured value is too short or uses characters
+        // that could not survive Matomo's input encoding, so a weak secret fails closed here.
+        $secret = $this->settings->getSharedSecret();
         $trustedProxies = $this->settings->getTrustedProxies();
         if ($secret === '' || empty($trustedProxies)) {
             $this->reject("shared secret or trusted proxies are not configured");

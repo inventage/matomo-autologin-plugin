@@ -22,8 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Breaking: AutoLogin is disabled after installing or updating. Set "Enable AutoLogin", "Shared secret" and
-  "Trusted proxies" to turn it on.
+- Breaking: AutoLogin is disabled after installing or updating. Set `enabled`, `sharedSecret` and
+  `trustedProxies` in the `[AutoLogin]` section of `config.ini.php` to turn it on.
+- `enabled`, `sharedSecret`, `trustedProxies` and `allowSuperUserRole` are read from `config.ini.php`
+  instead of the database, so they can be set with `console config:set` when deploying and cannot be
+  changed from the web UI. `trustedProxies` accepts commas as well as newlines.
 - A `matomo-role` header other than `superuser` now removes superuser access from the user. AutoLogin refuses to
   remove it from the last superuser.
 - Requests with underscore variants of the `matomo-*` headers (e.g. `matomo_username`) are rejected.

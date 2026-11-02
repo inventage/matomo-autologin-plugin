@@ -13,6 +13,7 @@ use Matomo\Network\IPUtils;
 use Piwik\Piwik;
 use Piwik\Plugins\SitesManager\Model as SitesManagerModel;
 use Piwik\Settings\FieldConfig;
+use Piwik\Settings\Plugin\SystemConfigSetting;
 use Piwik\Settings\Plugin\SystemSetting;
 use Piwik\Settings\Setting;
 use Piwik\Site;
@@ -20,6 +21,14 @@ use Piwik\Site;
 class SystemSettings extends \Piwik\Settings\Plugin\SystemSettings
 {
     private const MIN_SECRET_LENGTH = 32;
+
+    /**
+     * The four settings that gate authentication live in config.ini.php instead of the database,
+     * under this section. Two reasons: they can be provisioned by `php console config:set` during
+     * a deployment, and a Super User who takes over the web UI cannot rewrite them to let
+     * themselves back in.
+     */
+    public const CONFIG_SECTION = 'AutoLogin';
 
     public $enabled;
     public $sharedSecret;
@@ -49,6 +58,30 @@ class SystemSettings extends \Piwik\Settings\Plugin\SystemSettings
     }
 
     /**
+     * The shared secret, or '' when it does not meet the minimum requirements.
+     *
+     * FieldConfig::$validate only runs through Setting::setValue(), which `php console config:set`
+     * does not use - it writes config.ini.php directly. The constraints are therefore enforced
+     * here too, and returning '' makes Controller reject the request rather than trusting a weak
+     * or unusable secret.
+     */
+    public function getSharedSecret(): string
+    {
+        $secret = trim((string) $this->sharedSecret->getValue());
+
+        if (strlen($secret) < self::MIN_SECRET_LENGTH) {
+            return '';
+        }
+        // Matomo HTML-encodes characters like < & " in setting input, which would never match the
+        // raw header, so the charset is restricted on both paths.
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $secret)) {
+            return '';
+        }
+
+        return $secret;
+    }
+
+    /**
      * @return string[] IPs and ranges (CIDR or wildcard) the proxy connects from, empty if not configured
      */
     public function getTrustedProxies(): array
@@ -58,12 +91,13 @@ class SystemSettings extends \Piwik\Settings\Plugin\SystemSettings
 
     private static function parseLines(string $value): array
     {
-        return array_values(array_filter(array_map('trim', preg_split('/[\r\n]+/', $value))));
+        // Commas as well as newlines: a value set in config.ini.php cannot span lines.
+        return array_values(array_filter(array_map('trim', preg_split('/[\r\n,]+/', $value))));
     }
 
-    private function createEnabled(): SystemSetting
+    private function createEnabled(): SystemConfigSetting
     {
-        return $this->makeSetting("enabled", false, FieldConfig::TYPE_BOOL, function (FieldConfig $field) {
+        return $this->makeSettingManagedInConfigOnly(self::CONFIG_SECTION, "enabled", false, FieldConfig::TYPE_BOOL, function (FieldConfig $field) {
             $field->title = "Enable AutoLogin";
             $field->description = "Off by default. AutoLogin rejects every request until this is on and a shared "
                 . "secret and trusted proxies are set.";
@@ -71,9 +105,9 @@ class SystemSettings extends \Piwik\Settings\Plugin\SystemSettings
         });
     }
 
-    private function createSharedSecret(): SystemSetting
+    private function createSharedSecret(): SystemConfigSetting
     {
-        return $this->makeSetting("sharedSecret", "", FieldConfig::TYPE_STRING, function (FieldConfig $field) {
+        return $this->makeSettingManagedInConfigOnly(self::CONFIG_SECTION, "sharedSecret", "", FieldConfig::TYPE_STRING, function (FieldConfig $field) {
             $field->title = "Shared secret";
             $field->description = "The proxy must send this value in the '" . Controller::HEADER_SECRET_KEY
                 . "' header. At least " . self::MIN_SECRET_LENGTH . " characters, for example the output of "
@@ -95,9 +129,9 @@ class SystemSettings extends \Piwik\Settings\Plugin\SystemSettings
         });
     }
 
-    private function createTrustedProxies(): SystemSetting
+    private function createTrustedProxies(): SystemConfigSetting
     {
-        return $this->makeSetting("trustedProxies", "", FieldConfig::TYPE_STRING, function (FieldConfig $field) {
+        return $this->makeSettingManagedInConfigOnly(self::CONFIG_SECTION, "trustedProxies", "", FieldConfig::TYPE_STRING, function (FieldConfig $field) {
             $field->title = "Trusted proxies";
             $field->description = "One IP address or range per line, for example 10.0.0.5 or 10.0.0.0/24. "
                 . "Requests whose connecting address (REMOTE_ADDR) is not listed are rejected.";
@@ -112,9 +146,9 @@ class SystemSettings extends \Piwik\Settings\Plugin\SystemSettings
         });
     }
 
-    private function createAllowSuperUserRole(): SystemSetting
+    private function createAllowSuperUserRole(): SystemConfigSetting
     {
-        return $this->makeSetting("allowSuperUserRole", false, FieldConfig::TYPE_BOOL, function (FieldConfig $field) {
+        return $this->makeSettingManagedInConfigOnly(self::CONFIG_SECTION, "allowSuperUserRole", false, FieldConfig::TYPE_BOOL, function (FieldConfig $field) {
             $field->title = "Allow superuser role";
             $field->description = "Off by default. When off, the 'superuser' role header is rejected and existing "
                 . "superusers cannot sign in through AutoLogin.";
