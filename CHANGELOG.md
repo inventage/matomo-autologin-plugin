@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `enabled`, `sharedSecret`, `trustedProxies` and `allowSuperUserRole` are read from `config.ini.php`
   instead of the database, so they can be set with `console config:set` when deploying and cannot be
   changed from the web UI. `trustedProxies` accepts commas as well as newlines.
+- Added `requireSharedSecret` (default on). When off, the trusted-proxy address check is the only
+  gate and the shared secret is not required; `trustedProxies` stays mandatory.
 - A `matomo-role` header other than `superuser` now removes superuser access from the user. AutoLogin refuses to
   remove it from the last superuser.
 - Requests with underscore variants of the `matomo-*` headers (e.g. `matomo_username`) are rejected.

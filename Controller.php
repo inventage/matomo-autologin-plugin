@@ -98,12 +98,19 @@ class Controller extends \Piwik\Plugin\Controller
             $this->reject("plugin is not enabled in the system settings");
         }
 
+        // The trusted-proxy address check always applies. The shared secret is an additional
+        // factor that can be turned off when the proxy is the only thing that can reach Matomo.
+        $requireSecret = (bool) $this->settings->requireSharedSecret->getValue();
+
         // getSharedSecret() returns '' when the configured value is too short or uses characters
         // that could not survive Matomo's input encoding, so a weak secret fails closed here.
         $secret = $this->settings->getSharedSecret();
         $trustedProxies = $this->settings->getTrustedProxies();
-        if ($secret === '' || empty($trustedProxies)) {
-            $this->reject("shared secret or trusted proxies are not configured");
+        if (empty($trustedProxies)) {
+            $this->reject("trusted proxies are not configured");
+        }
+        if ($requireSecret && $secret === '') {
+            $this->reject("shared secret is required but not configured");
         }
 
         // REMOTE_ADDR on purpose: X-Forwarded-For and similar headers are client controlled.
@@ -114,9 +121,11 @@ class Controller extends \Piwik\Plugin\Controller
 
         $this->assertNoUnderscoreHeaderVariants();
 
-        $providedSecret = $this->getHeader(self::HEADER_SECRET_KEY);
-        if ($providedSecret === null || !hash_equals($secret, $providedSecret)) {
-            $this->reject("missing or wrong shared secret header");
+        if ($requireSecret) {
+            $providedSecret = $this->getHeader(self::HEADER_SECRET_KEY);
+            if ($providedSecret === null || !hash_equals($secret, $providedSecret)) {
+                $this->reject("missing or wrong shared secret header");
+            }
         }
     }
 

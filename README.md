@@ -34,6 +34,7 @@ enabled = 1
 sharedSecret = "0f3a...32-chars-or-more"
 trustedProxies = "127.0.0.1"
 allowSuperUserRole = 0
+; requireSharedSecret = 1   ; set to 0 to rely on trustedProxies alone (see below)
 ```
 
 Or equivalently, without editing the file by hand:
@@ -49,6 +50,7 @@ Or equivalently, without editing the file by hand:
 |---|---|---|---|
 | `enabled` | config.ini.php | `0` | Every request is rejected while this is off. |
 | `sharedSecret` | config.ini.php | empty | Value the proxy sends in `matomo-autologin-secret`. At least 32 characters of letters, digits, `-` or `_`, e.g. `openssl rand -hex 32`. A value that does not meet this is treated as unset. |
+| `requireSharedSecret` | config.ini.php | `1` | When `0`, only the trusted-proxy address check applies and `sharedSecret` / the `matomo-autologin-secret` header are not needed. Only safe when the proxy is the single thing that can reach Matomo (e.g. Matomo bound to loopback with the proxy as a sidecar). `trustedProxies` stays mandatory. |
 | `trustedProxies` | config.ini.php | empty | One or more IP addresses or ranges, separated by commas or newlines, e.g. `10.0.0.5` or `10.0.0.0/24`. |
 | `allowSuperUserRole` | config.ini.php | `0` | When off, the `superuser` role header is rejected and existing superusers cannot sign in through AutoLogin. |
 | Disable AutoRegistration | UI / database | off | When on, unknown usernames are rejected instead of created. |

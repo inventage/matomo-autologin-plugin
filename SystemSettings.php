@@ -32,6 +32,7 @@ class SystemSettings extends \Piwik\Settings\Plugin\SystemSettings
 
     public $enabled;
     public $sharedSecret;
+    public $requireSharedSecret;
     public $trustedProxies;
     public $allowSuperUserRole;
     public $disableAutoRegistration;
@@ -51,6 +52,7 @@ class SystemSettings extends \Piwik\Settings\Plugin\SystemSettings
         $this->siteModel = new SitesManagerModel();
         $this->enabled = $this->createEnabled();
         $this->sharedSecret = $this->createSharedSecret();
+        $this->requireSharedSecret = $this->createRequireSharedSecret();
         $this->trustedProxies = $this->createTrustedProxies();
         $this->allowSuperUserRole = $this->createAllowSuperUserRole();
         $this->disableAutoRegistration = $this->createDisableAutoRegistration();
@@ -126,6 +128,19 @@ class SystemSettings extends \Piwik\Settings\Plugin\SystemSettings
                     throw new \Exception("The shared secret may only contain letters, digits, '-' and '_'.");
                 }
             };
+        });
+    }
+
+    private function createRequireSharedSecret(): SystemConfigSetting
+    {
+        return $this->makeSettingManagedInConfigOnly(self::CONFIG_SECTION, "requireSharedSecret", true, FieldConfig::TYPE_BOOL, function (FieldConfig $field) {
+            $field->title = "Require shared secret";
+            $field->description = "On by default. When off, only the trusted-proxy address check gates "
+                . "requests and the '" . Controller::HEADER_SECRET_KEY . "' header is not required. Only turn "
+                . "this off when the proxy is the single source that can reach Matomo (for example Matomo bound "
+                . "to loopback with the proxy as a sidecar); otherwise anything that can reach Matomo from a "
+                . "trusted address can authenticate.";
+            $field->uiControl = FieldConfig::UI_CONTROL_CHECKBOX;
         });
     }
 
