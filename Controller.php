@@ -9,240 +9,223 @@
 
 namespace Piwik\Plugins\AutoLogin;
 
-use Piwik\Access;
+use Matomo\Network\IP;
 use Piwik\Container\StaticContainer;
 use Piwik\Exception\Exception;
-use Piwik\Site;
+use Piwik\Log;
 use Piwik\Plugins\SitesManager\Model as SitesManagerModel;
 use Piwik\Plugins\UsersManager\Model as UsersManagerModel;
+use Piwik\Session\SessionInitializer;
+use Piwik\Url;
 
-
-class Controller extends \Piwik\Plugins\Login\Controller
+/**
+ * Extends the generic plugin controller on purpose. Extending Login\Controller would expose its public actions
+ * (login, logme, ...) under module=AutoLogin, and those would then authenticate through the password-less Auth.
+ */
+class Controller extends \Piwik\Plugin\Controller
 {
-    const PLUGIN_AUTH_PATH = "Piwik\Plugins\AutoLogin\Auth";
-    const PLUGIN_SYSTEM_SETTINGS_PATH = "\Piwik\Plugins\AutoLogin\SystemSettings";
-    const PLUGIN_API_PATH = "Piwik\Plugins\AutoLogin\API";
     const HEADER_USERNAME_KEY = "matomo-username";
     const HEADER_GROUP_KEY = "matomo-group";
     const HEADER_ROLE_KEY = "matomo-role";
     const HEADER_EMAIL_KEY = "matomo-email";
+    const HEADER_SECRET_KEY = "matomo-autologin-secret";
 
+    const ROLE_SUPERUSER = "superuser";
+    const ROLE_NOACCESS = "noaccess";
 
-    private $userModel;
+    /**
+     * @var SystemSettings
+     */
+    private $settings;
 
-    private $siteModel;
-    private $api;
+    /**
+     * @var UserProvisioner
+     */
+    private $users;
 
-    public function __construct(
-        $passwordResetter = null,
-        $auth = null,
-        $sessionInitializer = null,
-        $passwordVerify = null,
-        $bruteForceDetection = null,
-        $systemSettings = null
-    )
+    public function __construct($settings = null, $users = null)
     {
-        if (empty($auth)) {
-            $auth = StaticContainer::get(self::PLUGIN_AUTH_PATH);
-        }
-        if (empty($systemSettings)) {
-            $systemSettings = StaticContainer::get(self::PLUGIN_SYSTEM_SETTINGS_PATH);
-        }
-        $this->auth = $auth;
-        $this->userModel = new UsersManagerModel();
-        $this->siteModel = new SitesManagerModel();
-        $this->api = StaticContainer::get(self::PLUGIN_API_PATH);
+        parent::__construct();
 
-        parent::__construct($passwordResetter, $auth, $sessionInitializer, $passwordVerify
-            , $bruteForceDetection, $systemSettings);
+        $this->settings = $settings ?: StaticContainer::get(SystemSettings::class);
+        $this->users = $users ?: new UserProvisioner(new UsersManagerModel());
     }
 
     public function index()
     {
+        $this->assertRequestComesFromTrustedProxy();
         $this->autoLogin();
     }
 
     private function autoLogin(): void
     {
-        $username = $this->getUsernameFromRequestHeader();
-
-        if ($username == null) {
+        $username = $this->getHeader(self::HEADER_USERNAME_KEY);
+        if ($username === null) {
             throw new Exception("Autologin error. No username defined in the request header.");
         }
 
-        $user = $this->userModel->getUser($username);
-        if (empty($user['login'])) {
-            $disabledAutoRegistration = $this->systemSettings->disableAutoRegistration->getValue();
-            if ($disabledAutoRegistration) {
-                throw new Exception("Autologin error. AutoRegistration is disabled. User '"
-                    . $username . " does not exist in matomo: ");
-            }
-            $email = $this->getEmailFromRequestHeader();
-            if ($email == null) {
-                throw new Exception("Autologin error. No email address defined in the request header.
-                        Required for AutoRegistration");
-            }
-            $this->signupUser($username, $this->generateRandomPassword(), $email);
+        $role = $this->getHeader(self::HEADER_ROLE_KEY);
+        $role = $role === null ? null : strtolower($role);
+        $allowSuperUser = (bool) $this->settings->allowSuperUserRole->getValue();
+
+        if ($role === self::ROLE_SUPERUSER && !$allowSuperUser) {
+            $this->reject("role 'superuser' requested but 'Allow superuser role' is disabled");
         }
 
-        $groupName = $this->getGroupFromRequestHeader();
-        $role = $this->getRoleFromRequestHeader();
+        $user = $this->users->getUser($username);
+        if (empty($user['login'])) {
+            if ($this->settings->disableAutoRegistration->getValue()) {
+                throw new Exception("Autologin error. AutoRegistration is disabled and the user does not exist.");
+            }
+            $email = $this->getHeader(self::HEADER_EMAIL_KEY);
+            if ($email === null) {
+                throw new Exception("Autologin error. No email address defined in the request header. "
+                    . "Required for AutoRegistration.");
+            }
+            $this->users->createUser($username, $email);
+        } elseif (!empty($user['superuser_access']) && !$allowSuperUser) {
+            // Without this an attacker who gets past the proxy checks could still sign in as an existing superuser.
+            $this->reject("login as existing superuser '$username' but 'Allow superuser role' is disabled");
+        }
 
-        $this->setPermissions($username, $groupName, $role);
-        $this->autoLoginAs($username);
-
+        $this->setPermissions($username, $this->getHeader(self::HEADER_GROUP_KEY), $role);
+        $this->signInAs($username);
     }
 
-    private function setPermissions($username, $groupName, $role): void
+    private function assertRequestComesFromTrustedProxy(): void
     {
-        if ($role != null){
-            $role = strtolower($role);
+        if (!$this->settings->enabled->getValue()) {
+            $this->reject("plugin is not enabled in the system settings");
         }
 
-        if ($role == "superuser") {
-            $this->setSuperUserAccess($username);
+        // The trusted-proxy address check always applies. The shared secret is an additional
+        // factor that can be turned off when the proxy is the only thing that can reach Matomo.
+        $requireSecret = (bool) $this->settings->requireSharedSecret->getValue();
+
+        // getSharedSecret() returns '' when the configured value is too short or uses characters
+        // that could not survive Matomo's input encoding, so a weak secret fails closed here.
+        $secret = $this->settings->getSharedSecret();
+        $trustedProxies = $this->settings->getTrustedProxies();
+        if (empty($trustedProxies)) {
+            $this->reject("trusted proxies are not configured");
+        }
+        if ($requireSecret && $secret === '') {
+            $this->reject("shared secret is required but not configured");
+        }
+
+        // REMOTE_ADDR on purpose: X-Forwarded-For and similar headers are client controlled.
+        $remoteAddress = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : '';
+        if ($remoteAddress === '' || !IP::fromStringIP($remoteAddress)->isInRanges($trustedProxies)) {
+            $this->reject("request from untrusted address '$remoteAddress'");
+        }
+
+        $this->assertNoUnderscoreHeaderVariants();
+
+        if ($requireSecret) {
+            $providedSecret = $this->getHeader(self::HEADER_SECRET_KEY);
+            if ($providedSecret === null || !hash_equals($secret, $providedSecret)) {
+                $this->reject("missing or wrong shared secret header");
+            }
+        }
+    }
+
+    /**
+     * Some servers map both "matomo-username" and "matomo_username" to HTTP_MATOMO_USERNAME. A proxy that only
+     * overwrites the hyphenated header would then let a client-sent underscore variant through.
+     * Only works where getallheaders() returns the raw request headers (mod_php). Under FPM it is rebuilt from
+     * $_SERVER after the merge, so there the proxy has to strip both spellings (see README).
+     */
+    private function assertNoUnderscoreHeaderVariants(): void
+    {
+        if (!function_exists('getallheaders')) {
+            return;
+        }
+        foreach (array_keys(getallheaders()) as $name) {
+            $name = strtolower((string) $name);
+            if (strpos($name, '_') !== false && strpos(str_replace('_', '-', $name), 'matomo-') === 0) {
+                $this->reject("header '$name' uses underscores, only hyphenated matomo-* headers are accepted");
+            }
+        }
+    }
+
+    /**
+     * @return never
+     */
+    private function reject(string $reason): void
+    {
+        Log::warning("AutoLogin rejected a request: " . $reason);
+        throw new Exception("Autologin request rejected.");
+    }
+
+    private function setPermissions(string $username, ?string $groupName, ?string $role): void
+    {
+        if ($role === self::ROLE_SUPERUSER) {
+            $this->users->grantSuperUserAccess($username);
             return;
         }
 
-
-        if ($role == "noaccess") {
-            $this->api->resetUserAccess($username);
-            return;
+        // Any other explicit role means the proxy no longer considers this user a superuser.
+        if ($role !== null) {
+            $this->users->revokeSuperUserAccess($username);
         }
 
+        if ($role === self::ROLE_NOACCESS) {
+            $this->users->resetUserAccess($username);
+            return;
+        }
 
         if (empty($groupName)) {
             return;
         }
 
-
-        $availableGroups = $this->systemSettings->groupManagement->getValue();
-        $groupFound = false;
-        $sites = [];
-
-        foreach ($availableGroups as $curGroup) {
-            $curGroupName = $curGroup['index'];
-            if (empty($curGroupName)) {
-                continue;
-            }
-
-            if ($curGroupName == $groupName) {
-                $groupFound = true;
-                $sites = $curGroup['value'];
-                break;
-            }
+        if (!UserProvisioner::isValidAccessType($role)) {
+            throw new Exception("Autologin error. Role must be one of view, write, admin when a group is set.");
         }
 
-        if (!$groupFound) {
-            throw new Exception("Autologin error. Groupname `$groupName` does not exist. Contact your admin");
-        }
+        $sites = $this->getSitesOfGroup($groupName);
 
-        $allSitesId = array_keys($this->getAllSites());
-        $sitesIntersection = array_intersect($allSitesId, $sites);
-
-        if (count($sitesIntersection) != count($sites)) {
-            $allSitesIdString = implode(", ", $allSitesId);
-            $sitesString = implode(", ", $sites);
-
-            throw new Exception("Autologin error. Site ids from group `$groupName`
-                do not exist. Contact your admin. All site ids: $allSitesIdString
-                . And requested site: $sitesString. Number of sites: "
-                . count($sites) . " 
-                Counter sitesIntersection: " . count($sitesIntersection) . " and sites : " . count($sites));
-            return;
-        }
-        $this->api->resetUserAccess($username);
-        $this->api->setUserAccess($username, $role, $sites);
+        $this->users->resetUserAccess($username);
+        $this->users->setUserAccess($username, $role, $sites);
     }
 
-
-    private function autoLoginAs($username): void
+    private function getSitesOfGroup(string $groupName): array
     {
-        $this->authenticateAndRedirect($username, "");
-    }
-
-    private function signupUser(string $login, string $password, string $email)
-    {
-        try {
-            Access::doAsSuperUser(function () use ($login, $password, $email) {
-                $this->api->addUser($login, $password, $email);
-            });
-        } catch (\Exception $e) {
-            throw new Exception("Autologin user signup failed. Reason: $e");
-        }
-    }
-
-    private function setSuperUserAccess(string $login)
-    {
-        try {
-            Access::doAsSuperUser(function () use ($login) {
-                $this->api->setSuperUserAccess($login, true);
-            });
-        } catch (\Exception $e) {
-            throw new Exception("Autologin set superuser access failed. Reason: $e");
-        }
-    }
-
-    private function getUsernameFromRequestHeader(): ?string
-    {
-        $username = null;
-
-        foreach (getallheaders() as $name => $value) {
-            if ($name == self::HEADER_USERNAME_KEY) {
-                $username = $value;
+        foreach ($this->settings->groupManagement->getValue() as $group) {
+            if (!empty($group['index']) && $group['index'] === $groupName) {
+                $sites = (array) $group['value'];
+                $existingSiteIds = array_column((new SitesManagerModel())->getAllSites(), 'idsite');
+                if (count(array_intersect($existingSiteIds, $sites)) !== count($sites)) {
+                    throw new Exception("Autologin error. Group '$groupName' references sites that do not exist. "
+                        . "Contact your admin.");
+                }
+                return $sites;
             }
         }
-        return $username;
+
+        throw new Exception("Autologin error. Group '$groupName' does not exist. Contact your admin.");
     }
 
-    private function getEmailFromRequestHeader(): ?string
+    private function signInAs(string $username): void
     {
-        $username = null;
+        $auth = StaticContainer::get(Auth::class);
+        $auth->setLogin($username);
 
-        foreach (getallheaders() as $name => $value) {
-            if ($name == self::HEADER_EMAIL_KEY) {
-                $username = $value;
-            }
+        (new SessionInitializer())->initSession($auth);
+
+        Url::redirectToUrl(Url::getCurrentUrlWithoutQueryString());
+    }
+
+    /**
+     * Reads $_SERVER instead of getallheaders(): header name casing differs between SAPIs (mod_php keeps the
+     * client's casing, FPM title-cases), $_SERVER normalises to HTTP_UPPER_SNAKE on all of them.
+     */
+    private function getHeader(string $name): ?string
+    {
+        $key = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
+        if (!isset($_SERVER[$key]) || !is_string($_SERVER[$key])) {
+            return null;
         }
-        return $username;
-    }
-
-    private function getGroupFromRequestHeader(): ?string
-    {
-        $groupName = null;
-
-        foreach (getallheaders() as $name => $value) {
-            if ($name == self::HEADER_GROUP_KEY) {
-                $groupName = $value;
-            }
-        }
-        return $groupName;
-    }
-
-    private function getRoleFromRequestHeader(): ?string
-    {
-        $role = null;
-        foreach (getallheaders() as $name => $value) {
-            if ($name == self::HEADER_ROLE_KEY) {
-                $role = $value;
-            }
-        }
-        return $role;
-    }
-
-    private function getAllSites(): array
-    {
-        $sites = $this->siteModel->getAllSites();
-        $allSites = [];
-        foreach ($sites as $site) {
-            $allSites[$site['idsite']] = $site;
-        }
-        return Site::setSitesFromArray($allSites);
-    }
-
-    function generateRandomPassword($length = 12): string
-    {
-        $bytes = random_bytes($length);
-        return bin2hex($bytes);
+        $value = trim($_SERVER[$key]);
+        return $value === '' ? null : $value;
     }
 }
