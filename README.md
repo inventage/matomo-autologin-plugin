@@ -71,6 +71,22 @@ Request headers set by the proxy:
 
 ![Configuration](./screenshots/plugin_settings.png)
 
+## Compatibility
+
+| Plugin version | Matomo | PHP |
+| --- | --- | --- |
+| 1.x | 6.x | 8.1 or later |
+| 0.x | 5.x | 7.2.5 or later |
+
+If Matomo is configured with `proxy_host_headers`, Matomo 6 only uses the host from those headers when it is listed
+in `trusted_hosts`; otherwise it falls back to the `Host` header. Add the public hostname of your proxy to
+`trusted_hosts`, or AutoLogin may redirect to the wrong host after signing a user in.
+
+## Upgrading to 1.0.0
+
+Version 1.0.0 only adds Matomo 6 compatibility; the configuration is unchanged. Update the plugin together with or
+after upgrading Matomo to version 6.
+
 ## Upgrading from 0.2.x
 
 Version 0.3.0 fixes an authentication bypass (see the [security advisory](https://github.com/inventage/matomo-autologin-plugin/security/advisories)). After the update AutoLogin rejects all requests until you enable it, set a shared secret and list your proxy addresses. Configure the proxy to send the secret header first, then enable the plugin. Turn on "Allow superuser role" only if your proxy assigns the superuser role.

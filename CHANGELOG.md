@@ -6,6 +6,15 @@ these sections: Added, Changed, Deprecated, Removed, Fixed or Security.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.0.0
+
+### Changed
+
+- Breaking: Compatibility with Matomo 6. This version requires Matomo 6 and PHP 8.1 or later. Matomo 5
+  installations should stay on the 0.x releases.
+- The session token AutoLogin creates declares that it has no token scope, as Matomo 6 expects from
+  authentication plugins that generate their own token.
+
 ## 0.3.0
 
 ### Security

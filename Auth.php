@@ -58,7 +58,9 @@ class Auth extends \Piwik\Plugins\Login\Auth
         $isSuperUser = (int) $user['superuser_access'];
         $code = $isSuperUser ? AuthResult::SUCCESS_SUPERUSER_AUTH_CODE : AuthResult::SUCCESS;
 
-        return new AuthResult($code, $user['login'], $this->token_auth);
+        // The token is generated here rather than stored, so it carries no scope. Declaring that keeps Matomo
+        // from looking it up in user_token_auth, where it would never be found.
+        return new AuthResult($code, $user['login'], $this->token_auth, ['token_access_level' => null]);
     }
 
 }

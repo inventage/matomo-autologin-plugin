@@ -1,6 +1,6 @@
 {
     "name": "AutoLogin",
-    "version": "0.3.0",
+    "version": "1.0.0",
     "description": "The Matomo AutoLogin Plugin adds new authentication and registration options by using incoming HTTP headers.",
     "keywords": ["authentication", "login", "registration", "groups", "autologin", "autoregistration", "auto-login", "auto-registration"],
     "license": "MIT",
@@ -13,8 +13,8 @@
         }
     ],
     "require": {
-        "piwik": ">=5.0.0-b1,<6.0.0-b1",
-        "php": ">=7.0.0"
+        "matomo": ">=6.0.0-b1,<7.0.0-b1",
+        "php": ">=8.1.0"
     },
     "support": {
         "issues": "https://github.com/inventage/matomo-autologin-plugin/issues",
